@@ -11,10 +11,10 @@ from src.config import QDRANT_URL, COLLECTION_NAME
 DATA_DIR = Path("data/raw_test")
 
 
-def load_pdfs():
+def load_pdfs(data_dir: Path = DATA_DIR):
     documents = []
 
-    for pdf_path in DATA_DIR.glob("*.pdf"):
+    for pdf_path in data_dir.glob("*.pdf"):
         print(f"Chargement du PDF : {pdf_path}")
 
         loader = PyPDFLoader(str(pdf_path))
@@ -36,7 +36,6 @@ def split_documents(documents):
     )
 
     chunks = splitter.split_documents(documents)
-
     print(f"Nombre de chunks créés : {len(chunks)}")
 
     return chunks
@@ -58,17 +57,29 @@ def create_vectorstore(chunks):
     return vectorstore
 
 
-def main():
+def ingest_documents():
     documents = load_pdfs()
 
     if not documents:
-        print("Aucun PDF trouvé dans data/raw_test.")
-        return
+        return {
+            "status": "error",
+            "message": "Aucun PDF trouvé dans data/raw_test.",
+            "chunks": 0,
+        }
 
     chunks = split_documents(documents)
     create_vectorstore(chunks)
 
-    print("Indexation terminée dans Qdrant.")
+    return {
+        "status": "success",
+        "message": "Indexation terminée dans Qdrant.",
+        "chunks": len(chunks),
+    }
+
+
+def main():
+    result = ingest_documents()
+    print(result)
 
 
 if __name__ == "__main__":

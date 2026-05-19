@@ -20,6 +20,16 @@ def get_vectorstore():
     return vectorstore
 
 
+def get_retriever(k: int = 5):
+    vectorstore = get_vectorstore()
+
+    return vectorstore.as_retriever(
+        search_kwargs={
+            "k": k,
+        }
+    )
+
+
 def format_docs(docs):
     formatted = []
 
@@ -34,15 +44,23 @@ def format_docs(docs):
     return "\n\n".join(formatted)
 
 
-def ask(question: str):
-    vectorstore = get_vectorstore()
+def format_sources(docs):
+    sources = []
 
-    retriever = vectorstore.as_retriever(
-        search_kwargs={
-            "k": 5
-        }
-    )
+    for doc in docs:
+        sources.append(
+            {
+                "source": doc.metadata.get("source", "source inconnue"),
+                "page": doc.metadata.get("page", "page inconnue"),
+                "content_preview": doc.page_content[:300],
+            }
+        )
 
+    return sources
+
+
+def ask_rag(question: str):
+    retriever = get_retriever(k=5)
     docs = retriever.invoke(question)
 
     context = format_docs(docs)
@@ -56,6 +74,7 @@ Si la réponse n'est pas présente dans le contexte, dis :
 "Je ne trouve pas cette information dans les documents fournis."
 
 Tu ne dois pas inventer d'informations médicales.
+Tu dois citer les sources utilisées.
 
 Question :
 {question}
@@ -63,17 +82,15 @@ Question :
 Contexte :
 {context}
 
-Réponse structurée en français avec les sources :
+Réponse structurée en français :
 """
     )
 
     llm = ChatDeepSeek(
-    model="deepseek-chat",
-    temperature=0,
-    max_tokens=None,
-    timeout=None,
-    max_retries=2,
-)
+        model="deepseek-chat",
+        temperature=0,
+        max_retries=2,
+    )
 
     chain = prompt | llm
 
@@ -84,11 +101,15 @@ Réponse structurée en français avec les sources :
         }
     )
 
-    return response.content, docs
+    return {
+        "question": question,
+        "answer": response.content,
+        "sources": format_sources(docs),
+    }
 
 
 def main():
-    print("RAG médical prêt. Tape 'exit' pour quitter.")
+    print("RAG médical DeepSeek prêt. Tape 'exit' pour quitter.")
 
     while True:
         question = input("\nQuestion : ")
@@ -96,19 +117,14 @@ def main():
         if question.lower() in ["exit", "quit", "q"]:
             break
 
-        answer, docs = ask(question)
+        result = ask_rag(question)
 
         print("\nRéponse :")
-        print(answer)
+        print(result["answer"])
 
-        print("\nSources récupérées :")
-        for doc in docs:
-            print(
-                "-",
-                doc.metadata.get("source"),
-                "page",
-                doc.metadata.get("page"),
-            )
+        print("\nSources :")
+        for source in result["sources"]:
+            print("-", source["source"], "page", source["page"])
 
 
 if __name__ == "__main__":
