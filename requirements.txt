@@ -1,10 +1,11 @@
 langchain
 langchain-community
 langchain-qdrant
-langchain-openai
+langchain-deepseek
 qdrant-client
 pypdf
 python-dotenv
 sentence-transformers
-fastembed
-langchain-deepseek
+fastapi
+uvicorn
+pydantic
